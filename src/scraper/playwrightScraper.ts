@@ -12,7 +12,7 @@ export class PlaywrightScraper implements Scraper {
 
     public async scrapeProduct(productUrl: string): Promise<ProductData | null> {
         const maxRetries = 3;
-        const browserType = process.env.BROWSER_TYPE || 'chromium';
+        const browserType = process.env.BROWSER_TYPE || 'webkit';
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             let page: Page | null = null;
@@ -22,17 +22,9 @@ export class PlaywrightScraper implements Scraper {
                 if (!this.browser) {
                     const launchOptions: any = {
                         headless: process.env.HEADLESS !== 'false',
-                        args: [
-                            '--disable-dev-shm-usage',
-                            '--no-sandbox',
-                            '--disable-setuid-sandbox',
-                            '--disable-gpu',
-                            '--disable-http2'
-                        ]
                     };
 
                     if (browserType === 'chromium') {
-                        // Use playwright-extra for Chromium with stealth
                         const { chromium: chromiumExtra } = await import('playwright-extra');
                         const stealth = await import('puppeteer-extra-plugin-stealth');
                         chromiumExtra.use(stealth.default());
@@ -48,12 +40,16 @@ export class PlaywrightScraper implements Scraper {
                 const context = await this.browser.newContext({
                     viewport: { width: 1920, height: 1080 },
                     // Randomize user agent slightly or use a standard one
-                    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
                     locale: 'en-US',
                     timezoneId: 'America/New_York',
                 });
 
                 page = await context.newPage();
+
+                // Optimize: Block resources to save memory and CPU
+                await page.route('**/*.{png,jpg,jpeg,gif,webp,svg,woff,woff2,ttf,eot,mp4,webm,mp3,wav}', route => route.abort());
+                await page.route('**/*{analytics,tracker,marketing}*', route => route.abort());
 
                 // Warmup
                 try {
