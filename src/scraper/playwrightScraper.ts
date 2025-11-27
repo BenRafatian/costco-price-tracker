@@ -12,7 +12,7 @@ export class PlaywrightScraper implements Scraper {
 
     public async scrapeProduct(productUrl: string): Promise<ProductData | null> {
         const maxRetries = 3;
-        const browserType = process.env.BROWSER_TYPE || 'webkit';
+        const browserType = process.env.BROWSER_TYPE || 'firefox';
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             let page: Page | null = null;
