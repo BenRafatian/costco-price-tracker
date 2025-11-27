@@ -1,7 +1,7 @@
 FROM node:18-bookworm
 
 # Install dependencies for Playwright browsers
-RUN npx playwright install-deps chromium webkit
+RUN npx playwright install-deps chromium
 
 WORKDIR /app
 
@@ -11,7 +11,7 @@ COPY package*.json ./
 RUN npm install
 
 # Install Playwright browsers
-RUN npx playwright install chromium webkit
+RUN npx playwright install chromium
 
 COPY . .
 
