@@ -26,7 +26,8 @@ export class PlaywrightScraper implements Scraper {
                             '--disable-dev-shm-usage', // Critical for Docker/Railway
                             '--no-sandbox',
                             '--disable-setuid-sandbox',
-                            '--disable-gpu'
+                            '--disable-gpu',
+                            '--disable-http2' // Fix for ERR_HTTP2_PROTOCOL_ERROR
                         ]
                     });
                 }
