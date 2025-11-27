@@ -18,11 +18,9 @@
     "dotenv": "^16.3.1",
     "node-cron": "^3.0.3",
     "playwright": "^1.56.1",
-    "playwright-extra": "^4.3.6",
     "prisma": "^5.22.0",
     "puppeteer": "^24.27.0",
     "puppeteer-extra": "^3.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "telegraf": "^4.16.3"
   },
   "devDependencies": {

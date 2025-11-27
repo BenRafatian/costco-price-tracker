@@ -12,7 +12,7 @@ export class PlaywrightScraper implements Scraper {
 
     public async scrapeProduct(productUrl: string): Promise<ProductData | null> {
         const maxRetries = 3;
-        const browserType = process.env.BROWSER_TYPE || 'firefox';
+        const browserType = process.env.BROWSER_TYPE || 'webkit';
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             let page: Page | null = null;
@@ -25,10 +25,7 @@ export class PlaywrightScraper implements Scraper {
                     };
 
                     if (browserType === 'chromium') {
-                        const { chromium: chromiumExtra } = await import('playwright-extra');
-                        const stealth = await import('puppeteer-extra-plugin-stealth');
-                        chromiumExtra.use(stealth.default());
-                        this.browser = await chromiumExtra.launch(launchOptions);
+                        this.browser = await chromium.launch(launchOptions);
                     } else if (browserType === 'firefox') {
                         this.browser = await firefox.launch(launchOptions);
                     } else {
