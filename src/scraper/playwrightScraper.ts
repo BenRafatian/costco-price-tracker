@@ -1,4 +1,4 @@
-import { chromium, firefox, webkit, Browser, Page } from 'playwright';
+import { chromium, firefox, webkit, Browser, Page, BrowserType } from 'playwright';
 import { Scraper } from './types.js';
 import { ProductData } from '../types/index.js';
 import * as fs from 'fs';
@@ -12,29 +12,40 @@ export class PlaywrightScraper implements Scraper {
 
     public async scrapeProduct(productUrl: string): Promise<ProductData | null> {
         const maxRetries = 3;
+        const browserType = process.env.BROWSER_TYPE || 'webkit'; // Default to WebKit as it works best for Costco
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             let page: Page | null = null;
             try {
-                console.log(`Scraping with Playwright (WebKit) - Attempt ${attempt}/${maxRetries}: ${productUrl}`);
+                console.log(`Scraping with Playwright (${browserType}) - Attempt ${attempt}/${maxRetries}: ${productUrl}`);
 
-                // Launch Chromium - more stable in Docker with flags
                 if (!this.browser) {
-                    this.browser = await chromium.launch({
-                        headless: true,
-                        args: [
-                            '--disable-dev-shm-usage', // Critical for Docker/Railway
+                    const launchOptions: any = {
+                        headless: process.env.HEADLESS !== 'false',
+                    };
+
+                    if (browserType === 'chromium') {
+                        launchOptions.args = [
+                            '--disable-dev-shm-usage',
                             '--no-sandbox',
                             '--disable-setuid-sandbox',
                             '--disable-gpu',
-                            '--disable-http2' // Fix for ERR_HTTP2_PROTOCOL_ERROR
-                        ]
-                    });
+                            '--disable-http2'
+                        ];
+                        // Use playwright-extra for Chromium if needed, but for now standard playwright with config
+                        this.browser = await chromium.launch(launchOptions);
+                    } else if (browserType === 'firefox') {
+                        this.browser = await firefox.launch(launchOptions);
+                    } else {
+                        // WebKit
+                        this.browser = await webkit.launch(launchOptions);
+                    }
                 }
 
                 const context = await this.browser.newContext({
                     viewport: { width: 1920, height: 1080 },
-                    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    // Randomize user agent slightly or use a standard one
+                    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
                     locale: 'en-US',
                     timezoneId: 'America/New_York',
                 });
@@ -57,6 +68,9 @@ export class PlaywrightScraper implements Scraper {
                 console.log(`Page Title: ${title}`);
 
                 if (!title || title.includes('Access Denied') || title.includes('Secure Connection Failed')) {
+                    await page.screenshot({ path: 'debug-failure.png' });
+                    const content = await page.content();
+                    fs.writeFileSync('debug-failure.html', content);
                     throw new Error(`Blocked or failed load: ${title}`);
                 }
 
