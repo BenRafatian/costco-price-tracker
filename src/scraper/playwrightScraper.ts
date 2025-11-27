@@ -38,25 +38,31 @@ export class PlaywrightScraper implements Scraper {
                 }
 
                 const context = await this.browser.newContext({
-                    viewport: { width: 1920, height: 1080 },
-                    // Randomize user agent slightly or use a standard one
+                    viewport: { width: 800, height: 600 }, // Reduced from 1920x1080 to save memory
                     userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
                     locale: 'en-US',
                     timezoneId: 'America/New_York',
                 });
 
+                // Block images and media at context level for better memory management
+                await context.route('**/*.{png,jpg,jpeg,gif,webp,svg,woff,woff2,ttf,eot,mp4,webm,mp3,wav,ico}', route => route.abort());
+                await context.route('**/*{analytics,tracker,marketing,advertisement,ads,tag,pixel}*', route => route.abort());
+
                 page = await context.newPage();
 
-                // Optimize: Block resources to save memory and CPU
-                await page.route('**/*.{png,jpg,jpeg,gif,webp,svg,woff,woff2,ttf,eot,mp4,webm,mp3,wav}', route => route.abort());
-                await page.route('**/*{analytics,tracker,marketing}*', route => route.abort());
-
-                // Warmup
+                // Quick warmup - close page immediately after to free memory
+                let warmupPage: any = null;
                 try {
-                    await page.goto('https://www.costco.ca/', { timeout: 30000, waitUntil: 'domcontentloaded' });
-                    await page.waitForTimeout(2000 + Math.random() * 2000);
+                    warmupPage = await context.newPage();
+                    await warmupPage.goto('https://www.costco.ca/', { timeout: 15000, waitUntil: 'domcontentloaded' });
+                    await warmupPage.waitForTimeout(1000);
                 } catch (e) {
-                    console.log('Warmup failed or timed out');
+                    console.log('Warmup skipped or failed');
+                } finally {
+                    if (warmupPage) {
+                        await warmupPage.close();
+                        warmupPage = null;
+                    }
                 }
 
                 // Go to product
@@ -73,28 +79,26 @@ export class PlaywrightScraper implements Scraper {
                     throw new Error(`Blocked or failed load: ${title}`);
                 }
 
-                // Try to extract data
-                // Wait for h1
+                // Try to extract data (simplified to reduce wait time)
                 try {
-                    await page.waitForSelector('h1', { timeout: 10000 });
+                    await page.waitForSelector('h1', { timeout: 5000 });
                 } catch (e) {
                     console.log('Timeout waiting for h1');
                 }
 
-                // Smart wait for price
+                // Simplified price extraction (reduced retries to save memory)
                 let priceText = '';
                 let name = '';
 
-                // Try up to 3 times to get a valid price on this page load (waiting/refreshing)
-                for (let priceAttempt = 1; priceAttempt <= 3; priceAttempt++) {
+                // Try up to 2 times max
+                for (let priceAttempt = 1; priceAttempt <= 2; priceAttempt++) {
                     console.log(`Waiting for price (Attempt ${priceAttempt})...`);
 
-                    // Wait for price selector to appear
                     try {
-                        await page.waitForSelector('.price-current, .your-price, [automation-id="productPriceOutput"]', { timeout: 5000 });
+                        await page.waitForSelector('.price-current, .your-price, [automation-id="productPriceOutput"]', { timeout: 3000 });
                     } catch (e) { }
 
-                    // Check current value
+                    // Extract data with simpler evaluate
                     const data = await page.evaluate(() => {
                         const name = document.querySelector('h1')?.textContent?.trim() || '';
                         const priceEl = document.querySelector('.price-current, .your-price, [automation-id="productPriceOutput"]');
@@ -105,20 +109,14 @@ export class PlaywrightScraper implements Scraper {
                     name = data.name;
                     priceText = data.priceText;
 
-                    // Check if price is valid (has numbers and not just dashes)
                     if (priceText && /\d/.test(priceText) && !priceText.includes('--')) {
                         console.log('Found valid price:', priceText);
                         break;
                     }
 
-                    console.log(`Price not ready yet: "${priceText}". Waiting/Reloading...`);
-
-                    if (priceAttempt < 3) {
-                        await page.waitForTimeout(2000);
-                        if (priceAttempt === 2) {
-                            console.log('Reloading page...');
-                            await page.reload({ waitUntil: 'domcontentloaded' });
-                        }
+                    console.log(`Price not ready yet: "${priceText}". Waiting...`);
+                    if (priceAttempt < 2) {
+                        await page.waitForTimeout(1500);
                     }
                 }
 
@@ -161,8 +159,12 @@ export class PlaywrightScraper implements Scraper {
                     this.browser = null;
                 }
             } finally {
+                // Explicit cleanup
                 if (page) {
-                    await page.close();
+                    try {
+                        await page.close();
+                    } catch (e) { }
+                    page = null;
                 }
             }
         }
