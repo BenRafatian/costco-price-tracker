@@ -10,8 +10,8 @@ COPY package*.json ./
 # Install app dependencies
 RUN npm install
 
-# Install Playwright browsers (WebKit only to save space/time)
-RUN npx playwright install webkit
+# Install Playwright browsers (Chromium for stability with --disable-dev-shm-usage)
+RUN npx playwright install chromium
 
 COPY . .
 
