@@ -12,7 +12,7 @@ export class PlaywrightScraper implements Scraper {
 
     public async scrapeProduct(productUrl: string): Promise<ProductData | null> {
         const maxRetries = 3;
-        const browserType = process.env.BROWSER_TYPE || 'webkit'; // Default to WebKit as it works best for Costco
+        const browserType = process.env.BROWSER_TYPE || 'chromium';
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
             let page: Page | null = null;
@@ -22,18 +22,21 @@ export class PlaywrightScraper implements Scraper {
                 if (!this.browser) {
                     const launchOptions: any = {
                         headless: process.env.HEADLESS !== 'false',
-                    };
-
-                    if (browserType === 'chromium') {
-                        launchOptions.args = [
+                        args: [
                             '--disable-dev-shm-usage',
                             '--no-sandbox',
                             '--disable-setuid-sandbox',
                             '--disable-gpu',
                             '--disable-http2'
-                        ];
-                        // Use playwright-extra for Chromium if needed, but for now standard playwright with config
-                        this.browser = await chromium.launch(launchOptions);
+                        ]
+                    };
+
+                    if (browserType === 'chromium') {
+                        // Use playwright-extra for Chromium with stealth
+                        const { chromium: chromiumExtra } = await import('playwright-extra');
+                        const stealth = await import('puppeteer-extra-plugin-stealth');
+                        chromiumExtra.use(stealth.default());
+                        this.browser = await chromiumExtra.launch(launchOptions);
                     } else if (browserType === 'firefox') {
                         this.browser = await firefox.launch(launchOptions);
                     } else {
@@ -45,7 +48,7 @@ export class PlaywrightScraper implements Scraper {
                 const context = await this.browser.newContext({
                     viewport: { width: 1920, height: 1080 },
                     // Randomize user agent slightly or use a standard one
-                    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+                    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                     locale: 'en-US',
                     timezoneId: 'America/New_York',
                 });

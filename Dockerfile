@@ -1,7 +1,7 @@
 FROM node:18-bookworm
 
-# Install dependencies for Playwright browsers (WebKit and Firefox only to save space)
-RUN npx playwright install-deps webkit firefox
+# Install dependencies for Playwright browsers
+RUN npx playwright install-deps chromium webkit
 
 WORKDIR /app
 
@@ -10,8 +10,8 @@ COPY package*.json ./
 # Install app dependencies
 RUN npm install
 
-# Install Playwright browsers (WebKit and Firefox)
-RUN npx playwright install webkit firefox
+# Install Playwright browsers
+RUN npx playwright install chromium webkit
 
 COPY . .
 
